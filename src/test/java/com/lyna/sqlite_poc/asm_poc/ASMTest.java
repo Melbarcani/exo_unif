@@ -13,15 +13,20 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @SpringBootTest
 class ASMTest {
 
-    @Autowired
-    private ResourceLoader resourceLoader = null;
-
     @Test
     void should_load_resource() throws IOException {
-        ASM asm = new ASM(resourceLoader);
-        File file = asm.loadResource();
+        ASM asm = new ASM();
+        asm.loadResources("artifact1");
+        File file = asm.getJarFile();
         assertNotNull(file);
-        asm.method();
+        asm.readByteCode();
+    }
+
+    @Test
+    void test_bytecode() throws IOException, ClassNotFoundException {
+        ByteCodeConverter byteCodeConverter = new ByteCodeConverter();
+        byteCodeConverter.loadResources("artifact1");
+        byteCodeConverter.convertToByteCode();
     }
 
 }
