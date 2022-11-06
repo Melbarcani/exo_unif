@@ -13,13 +13,16 @@ import java.lang.constant.MethodTypeDesc;
 import java.lang.module.ModuleFinder;
 import java.lang.reflect.Modifier;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class ASM {
     private File jarFile;
     private static final String SEPARATOR = System.getProperty("file.separator");
+    int i = 0;
 
     public void loadResources(String artifactName) throws IOException {
         var artifactPath = getArtifactPath(artifactName);
@@ -32,19 +35,21 @@ public class ASM {
     }
 
     private PomModel getPomModel(String artifactPath) throws IOException {
-        File file = new File(artifactPath + SEPARATOR + "pom.xml");
+        File pomFile = new File(artifactPath + SEPARATOR + "pom.xml");
         XmlMapper xmlMapper = new XmlMapper();
         xmlMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
-        return xmlMapper.readValue(file, PomModel.class);
+        return xmlMapper.readValue(pomFile, PomModel.class);
     }
 
     public String getArtifactPath(String artifactName) {
         String userDirectory = System.getProperty("user.dir");
-        File file = new File(userDirectory).getParentFile();
-        return file.getPath() + SEPARATOR + "artifacts" + SEPARATOR + artifactName;
+        File parentFile = new File(userDirectory).getParentFile();
+        return parentFile.getPath() + SEPARATOR + "artifacts" + SEPARATOR + artifactName;
     }
 
     public void readByteCode() throws IOException {
+        var bytecodeClass = new BytecodeClass();
+        List<BytecodeMethod> bytecodeMethods = new ArrayList<>();
 
         var finder = ModuleFinder.of(Path.of(jarFile.getAbsolutePath()));
         var moduleReference = finder.findAll().stream().findFirst().orElseThrow();
@@ -73,7 +78,12 @@ public class ASM {
 
                         @Override
                         public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-                            System.err.println("class " + modifier(access) + " " + name + " " + superName + " " + (interfaces != null ? Arrays.toString(interfaces) : ""));
+                            var accessModifier = modifier(access);
+                            bytecodeClass.setName(name);
+                            bytecodeClass.setSuperName(superName);
+                            bytecodeClass.setInterfaces(interfaces);
+                            bytecodeClass.setAccess(accessModifier);
+                            System.err.println("class " + accessModifier + " " + name + " " + superName + " " + (interfaces != null ? Arrays.toString(interfaces) : ""));
                         }
 
                         @Override
@@ -90,21 +100,45 @@ public class ASM {
 
                         @Override
                         public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
+                            var bytecodeMethod = new BytecodeMethod();
+                            var opcodes = new ArrayList<Integer>();
+                            var vars = new ArrayList<Integer>();
+                            bytecodeMethod.setModifier(modifier(access));
+                            bytecodeMethod.setName(name);
+                            bytecodeMethod.setDescriptor(descriptor);
+                            bytecodeMethod.setOwner(name);
+                            bytecodeMethod.setOpcodes(opcodes);
+                            bytecodeMethod.setVars(vars);
+                            System.out.println(bytecodeMethod + " ===>>> " + i++);
                             System.err.println("  method " + modifier(access) + " " + name + " " + MethodTypeDesc.ofDescriptor(descriptor).displayDescriptor() + " " + signature);
-                            return new MethodVisitor(Opcodes.ASM9) {
+                            var visitor =  new MethodVisitor(Opcodes.ASM9) {
                                 @Override
                                 public void visitInsn(int opcode) {
+                                    opcodes.add(opcode);
                                     System.err.println("    opcode " + opcode);
+
+                                    System.out.println(bytecodeMethod);
                                 }
 
                                 @Override
                                 public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
+                                    opcodes.add(opcode);
+                                    bytecodeMethod.setOwner(owner);
+                                    bytecodeMethod.setName(name);
+                                    bytecodeMethod.setDescriptor(descriptor);
                                     System.err.println("    opcode " + opcode + " " + owner + "." + name + descriptor);
+                                    System.out.println("    owner1  " + owner + "." + name + descriptor);
+                                    System.out.println(bytecodeMethod);
                                 }
 
                                 @Override
                                 public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
+                                    opcodes.add(opcode);
+                                    bytecodeMethod.setOwner(owner);
+                                    bytecodeMethod.setName(name);
+                                    bytecodeMethod.setDescriptor(descriptor);
                                     System.err.println("    opcode " + opcode + " " + owner + "." + name + descriptor);
+                                    System.out.println("    owner2 " + owner + "." + name + descriptor);
                                 }
 
                                 @Override
@@ -114,11 +148,14 @@ public class ASM {
 
                                 @Override
                                 public void visitIntInsn(int opcode, int operand) {
+                                    opcodes.add(opcode);
+                                    bytecodeMethod.setOperand(operand);
                                     System.err.println("    int " + opcode + " " + operand);
                                 }
 
                                 @Override
                                 public void visitVarInsn(int opcode, int var) {
+                                    vars.add(var);
                                     System.err.println("    var " + opcode + " " + var);
                                 }
 
@@ -126,9 +163,11 @@ public class ASM {
                                 public void visitTypeInsn(int opcode, String type) {
                                     System.err.println("    type " + opcode + " " + type);
                                 }
-
                                 // + the other visit methods to get all the opcodes
                             };
+                            bytecodeMethods.add(bytecodeMethod);
+                            bytecodeMethods.forEach(b -> System.out.println("HERE " + b));
+                            return visitor;
                         }
 
                         @Override
@@ -160,8 +199,6 @@ public class ASM {
                         public void visitPermittedSubclass(String permittedSubclass) {
                             System.err.println("permitted " + permittedSubclass);
                         }
-
-
                     }, 0);
                 }
             }

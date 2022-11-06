@@ -1,9 +1,7 @@
 package com.lyna.sqlite_poc.asm_poc;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.io.ResourceLoader;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,11 +20,11 @@ class ASMTest {
         asm.readByteCode();
     }
 
-    @Test
+    /*@Test
     void test_bytecode() throws IOException, ClassNotFoundException {
         ByteCodeConverter byteCodeConverter = new ByteCodeConverter();
         byteCodeConverter.loadResources("artifact1");
         byteCodeConverter.convertToByteCode();
-    }
+    }*/
 
 }
